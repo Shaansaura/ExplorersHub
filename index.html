@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Explorers Hub</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Courier New', monospace; background: #0a0a0a; color: #e0e0e0; min-height: 100vh; overflow-x: hidden; }
+    canvas#bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.07; pointer-events: none; z-index: 0; }
+    .scanline { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: repeating-linear-gradient(to bottom, transparent 0px, transparent 3px, rgba(0,0,0,0.04) 3px, rgba(0,0,0,0.04) 4px); pointer-events: none; z-index: 997; }
+    .wrap { position: relative; z-index: 1; max-width: 960px; margin: 0 auto; padding: 0 1.5rem; }
+
+    /* loader */
+    #loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #0a0a0a; z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity .6s; }
+    #loader-title { font-size: 20px; color: #22c55e; margin-bottom: 20px; letter-spacing: 3px; }
+    #loader-bar-wrap { width: 200px; height: 3px; background: #1a1a1a; border-radius: 4px; overflow: hidden; }
+    #loader-bar { height: 100%; width: 0%; background: #22c55e; box-shadow: 0 0 8px #22c55e; transition: width .05s linear; }
+    #loader-pct { font-size: 11px; color: #555; margin-top: 8px; }
+
+    nav { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; border-bottom: 0.5px solid #2a2a2a; background: rgba(10,10,10,0.95); position: sticky; top: 0; z-index: 10; flex-wrap: wrap; gap: 8px; }
+    .nav-logo { color: #22c55e; font-size: 15px; font-weight: 500; }
+    .nav-links { display: flex; gap: 1rem; align-items: center; }
+    .nav-links a { color: #888; font-size: 12px; text-decoration: none; cursor: pointer; transition: color .2s; }
+    .nav-links a:hover { color: #22c55e; }
+
+    .hero { padding: 4rem 1.5rem 3rem; text-align: center; border-bottom: 0.5px solid #1a1a1a; }
+    .hero-tag { font-size: 11px; color: #22c55e; border: 0.5px solid #22c55e; display: inline-block; padding: 4px 14px; border-radius: 20px; margin-bottom: 1.2rem; letter-spacing: 1px; }
+    .hero h1 { font-size: clamp(26px, 5vw, 42px); font-weight: 500; color: #fff; margin-bottom: .8rem; line-height: 1.2; }
+    .hero h1 span { color: #22c55e; }
+    .hero-sub { font-size: 13px; color: #666; max-width: 460px; margin: 0 auto 2rem; line-height: 1.9; }
+    .stats-row { display: flex; gap: 2rem; justify-content: center; flex-wrap: wrap; margin-top: 1.5rem; }
+    .stat { text-align: center; }
+    .stat-num { font-size: 22px; color: #22c55e; font-weight: 500; }
+    .stat-label { font-size: 11px; color: #555; margin-top: 2px; }
+
+    .section { padding: 2.5rem 0; }
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 12px; }
+    .section-title { font-size: 16px; font-weight: 500; color: #fff; }
+
+    .filter-wrap { display: flex; gap: 6px; flex-wrap: wrap; }
+    .filter-btn { background: transparent; border: 0.5px solid #2a2a2a; color: #888; padding: 5px 12px; border-radius: 20px; font-family: 'Courier New', monospace; font-size: 11px; cursor: pointer; transition: all .2s; }
+    .filter-btn.active { background: rgba(34,197,94,.1); color: #22c55e; border-color: #22c55e; }
+    .filter-btn:hover { border-color: #22c55e; color: #22c55e; }
+
+    .submit-btn { background: transparent; color: #22c55e; border: 0.5px solid #22c55e; padding: 8px 18px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 12px; cursor: pointer; transition: all .2s; }
+    .submit-btn:hover { background: rgba(34,197,94,.1); }
+
+    .submit-form { display: none; background: #111; border: 0.5px solid #2a2a2a; border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; animation: fadeUp .3s ease; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+    .form-input { background: #1a1a1a; border: 0.5px solid #2a2a2a; color: #e0e0e0; font-family: 'Courier New', monospace; font-size: 12px; padding: 9px 12px; border-radius: 6px; outline: none; transition: border-color .2s; width: 100%; }
+    .form-input:focus { border-color: #22c55e; }
+    .form-input::placeholder { color: #444; }
+    .cat-select { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+    .cat-btn { background: transparent; border: 0.5px solid #2a2a2a; color: #888; padding: 4px 12px; border-radius: 20px; font-family: 'Courier New', monospace; font-size: 11px; cursor: pointer; transition: all .2s; }
+    .cat-btn.active { background: rgba(34,197,94,.1); color: #22c55e; border-color: #22c55e; }
+    .form-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .form-msg { font-size: 12px; min-height: 16px; }
+    .form-msg.ok { color: #22c55e; }
+    .form-msg.err { color: #f87171; }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+    .card { background: #111; border: 0.5px solid #2a2a2a; border-radius: 12px; padding: 1.2rem; display: flex; flex-direction: column; gap: 8px; transition: border-color .2s, transform .2s; animation: fadeUp .3s ease; }
+    .card:hover { border-color: #22c55e; transform: translateY(-2px); }
+    .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+    .card-title { font-size: 13px; font-weight: 500; color: #fff; line-height: 1.4; }
+    .card-cat { font-size: 10px; padding: 2px 8px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; }
+    .cat-game { background: rgba(34,197,94,.1); color: #22c55e; border: 0.5px solid rgba(34,197,94,.3); }
+    .cat-tool { background: rgba(56,189,248,.1); color: #38bdf8; border: 0.5px solid rgba(56,189,248,.3); }
+    .cat-tech { background: rgba(167,139,250,.1); color: #a78bfa; border: 0.5px solid rgba(167,139,250,.3); }
+    .cat-fun { background: rgba(251,146,60,.1); color: #fb923c; border: 0.5px solid rgba(251,146,60,.3); }
+    .cat-other { background: rgba(255,255,255,.05); color: #888; border: 0.5px solid #2a2a2a; }
+    .card-desc { font-size: 12px; color: #666; line-height: 1.7; flex: 1; }
+    .card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+    .card-author { font-size: 10px; color: #555; }
+    .card-actions { display: flex; gap: 6px; align-items: center; }
+    .vote-btn { background: transparent; border: 0.5px solid #2a2a2a; color: #888; padding: 3px 10px; border-radius: 20px; font-family: 'Courier New', monospace; font-size: 11px; cursor: pointer; transition: all .2s; }
+    .vote-btn:hover { border-color: #22c55e; color: #22c55e; }
+    .visit-link { font-size: 11px; color: #22c55e; text-decoration: none; transition: opacity .2s; }
+    .visit-link:hover { opacity: .7; }
+    .empty { text-align: center; padding: 3rem; font-size: 13px; color: #444; display: none; }
+
+    footer { text-align: center; padding: 2rem 1.5rem; font-size: 11px; color: #333; border-top: 0.5px solid #1a1a1a; margin-top: 2rem; }
+    footer a { color: #22c55e; text-decoration: none; }
+
+    @media(max-width:600px) {
+      .form-grid { grid-template-columns: 1fr; }
+      .section-header { flex-direction: column; align-items: flex-start; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="loader">
+  <div id="loader-title">&gt; EXPLORERS HUB</div>
+  <div id="loader-bar-wrap"><div id="loader-bar"></div></div>
+  <div id="loader-pct">0%</div>
+</div>
+
+<canvas id="bg"></canvas>
+<div class="scanline"></div>
+
+<nav>
+  <div class="nav-logo">&gt; explorers hub</div>
+  <div class="nav-links">
+    <a href="https://shaansaura.github.io/portfolio/" target="_blank">portfolio</a>
+    <a href="https://shaansaura.github.io/shaans-super-aura/" target="_blank">shaans OS</a>
+    <a href="https://github.com/shaansaura" target="_blank">github</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="hero-tag">open to everyone</div>
+  <h1>The <span>Explorers</span> Hub</h1>
+  <p class="hero-sub">A community-driven collection of cool things across games, tools, tech and more. Submit anything worth exploring. 🔥</p>
+  <div class="stats-row">
+    <div class="stat"><div class="stat-num" id="total-count">0</div><div class="stat-label">submissions</div></div>
+    <div class="stat"><div class="stat-num" id="total-votes">0</div><div class="stat-label">total votes</div></div>
+    <div class="stat"><div class="stat-num" id="total-cats">5</div><div class="stat-label">categories</div></div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="section">
+    <div class="section-header">
+      <div>
+        <div class="section-title">Explore everything</div>
+        <div class="filter-wrap" style="margin-top:10px;" id="filter-wrap">
+          <button class="filter-btn active" onclick="filter('all')" id="f-all">all</button>
+          <button class="filter-btn" onclick="filter('game')" id="f-game">games</button>
+          <button class="filter-btn" onclick="filter('tool')" id="f-tool">tools</button>
+          <button class="filter-btn" onclick="filter('tech')" id="f-tech">tech</button>
+          <button class="filter-btn" onclick="filter('fun')" id="f-fun">fun</button>
+          <button class="filter-btn" onclick="filter('other')" id="f-other">other</button>
+        </div>
+      </div>
+      <button class="submit-btn" onclick="toggleSubmit()">+ submit something</button>
+    </div>
+
+    <div class="submit-form" id="submit-form">
+      <div style="font-size:14px;font-weight:500;color:#fff;margin-bottom:1rem;">Share something cool 🔥</div>
+      <div class="form-grid">
+        <input class="form-input" id="s-title" placeholder="title (e.g. Cool Game)">
+        <input class="form-input" id="s-url" placeholder="link (https://...)">
+      </div>
+      <input class="form-input" id="s-desc" placeholder="describe it in one sentence..." style="margin-bottom:10px;">
+      <div style="font-size:11px;color:#555;margin-bottom:6px;">pick a category:</div>
+      <div class="cat-select" id="cat-select">
+        <button class="cat-btn" onclick="selectCat('game')" id="c-game">game</button>
+        <button class="cat-btn" onclick="selectCat('tool')" id="c-tool">tool</button>
+        <button class="cat-btn" onclick="selectCat('tech')" id="c-tech">tech</button>
+        <button class="cat-btn" onclick="selectCat('fun')" id="c-fun">fun</button>
+        <button class="cat-btn active" onclick="selectCat('other')" id="c-other">other</button>
+      </div>
+      <div class="form-actions">
+        <button class="submit-btn" onclick="submitItem()">submit</button>
+        <button class="submit-btn" onclick="toggleSubmit()" style="color:#888;border-color:#2a2a2a;">cancel</button>
+        <span class="form-msg" id="form-msg"></span>
+      </div>
+    </div>
+
+    <div class="grid" id="grid"></div>
+    <div class="empty" id="empty">nothing here yet — be the first to submit something! 🚀</div>
+  </div>
+</div>
+
+<footer>
+  built by <a href="https://shaansaura.github.io/portfolio/">shaan</a> &middot;
+  <a href="https://shaansaura.github.io/shaans-super-aura/">shaans aura super OS</a> &middot;
+  2026
+</footer>
+
+<script>
+const defaults = [
+  {id:1,title:'Shaans Aura Super OS',url:'https://shaansaura.github.io/shaans-super-aura/',desc:'A full terminal OS in the browser with login, RPG game and matrix rain.',cat:'tech',votes:12,author:'shaan'},
+  {id:2,title:'Neal.fun',url:'https://neal.fun',desc:'A collection of weird and wonderful interactive experiences.',cat:'fun',votes:9,author:'shaan'},
+  {id:3,title:'Lichess',url:'https://lichess.org',desc:'Free open source chess. Play against anyone in the world.',cat:'game',votes:7,author:'shaan'},
+  {id:4,title:'Excalidraw',url:'https://excalidraw.com',desc:'Virtual whiteboard for sketching hand-drawn diagrams.',cat:'tool',votes:11,author:'shaan'},
+  {id:5,title:'GitHub',url:'https://github.com',desc:'Where developers store and share code with the world.',cat:'tech',votes:15,author:'shaan'},
+  {id:6,title:'The Useless Web',url:'https://theuselessweb.com',desc:'Takes you to a random useless website. Always hilarious.',cat:'fun',votes:8,author:'shaan'},
+  {id:7,title:'Scratch',url:'https://scratch.mit.edu',desc:'Build your own games and animations. Great for beginners.',cat:'game',votes:6,author:'shaan'},
+  {id:8,title:'Figma',url:'https://figma.com',desc:'Free design tool used by professionals worldwide.',cat:'tool',votes:10,author:'shaan'},
+];
+
+function getItems(){try{return JSON.parse(localStorage.getItem('explorers_hub')||'null')||defaults;}catch(e){return defaults;}}
+function saveItems(i){localStorage.setItem('explorers_hub',JSON.stringify(i));}
+if(!localStorage.getItem('explorers_hub'))saveItems(defaults);
+
+let curFilter='all', selectedCat='other', submitOpen=false;
+
+function updateStats(){
+  const items=getItems();
+  document.getElementById('total-count').textContent=items.length;
+  document.getElementById('total-votes').textContent=items.reduce((s,i)=>s+i.votes,0);
+}
+
+function filter(cat){
+  curFilter=cat;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('f-'+cat).classList.add('active');
+  render();
+}
+
+function selectCat(cat){
+  selectedCat=cat;
+  document.querySelectorAll('.cat-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('c-'+cat).classList.add('active');
+}
+
+function toggleSubmit(){
+  submitOpen=!submitOpen;
+  document.getElementById('submit-form').style.display=submitOpen?'block':'none';
+  document.getElementById('form-msg').textContent='';
+}
+
+function vote(id){
+  const items=getItems();
+  const item=items.find(i=>i.id===id);
+  if(item){item.votes++;saveItems(items);render();updateStats();}
+}
+
+function render(){
+  const items=getItems();
+  const filtered=curFilter==='all'?items:items.filter(i=>i.cat===curFilter);
+  const sorted=[...filtered].sort((a,b)=>b.votes-a.votes);
+  const grid=document.getElementById('grid');
+  const empty=document.getElementById('empty');
+  if(sorted.length===0){grid.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+  grid.innerHTML=sorted.map(item=>`
+    <div class="card">
+      <div class="card-top">
+        <div class="card-title">${item.title}</div>
+        <span class="card-cat cat-${item.cat}">${item.cat}</span>
+      </div>
+      <div class="card-desc">${item.desc}</div>
+      <div class="card-footer">
+        <span class="card-author">by ${item.author}</span>
+        <div class="card-actions">
+          <a class="visit-link" href="${item.url}" target="_blank">visit →</a>
+          <button class="vote-btn" onclick="vote(${item.id})">▲ ${item.votes}</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function submitItem(){
+  const title=document.getElementById('s-title').value.trim();
+  const url=document.getElementById('s-url').value.trim();
+  const desc=document.getElementById('s-desc').value.trim();
+  const msg=document.getElementById('form-msg');
+  if(!title||!url||!desc){msg.className='form-msg err';msg.textContent='please fill in all fields!';return;}
+  if(!url.startsWith('http')){msg.className='form-msg err';msg.textContent='link must start with https://';return;}
+  const items=getItems();
+  items.push({id:Date.now(),title,url,desc,cat:selectedCat,votes:1,author:'visitor'});
+  saveItems(items);
+  msg.className='form-msg ok';msg.textContent='submitted! thanks for sharing. 🔥';
+  document.getElementById('s-title').value='';
+  document.getElementById('s-url').value='';
+  document.getElementById('s-desc').value='';
+  updateStats();
+  setTimeout(()=>{toggleSubmit();filter('all');},1200);
+}
+
+// matrix
+const cv=document.getElementById('bg');
+const ctx=cv.getContext('2d');
+cv.width=window.innerWidth;cv.height=window.innerHeight;
+const cols=Math.floor(cv.width/16);
+const drops=Array(cols).fill(1);
+function drawMatrix(){
+  ctx.fillStyle='rgba(10,10,10,0.05)';ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.fillStyle='#22c55e';ctx.font='14px Courier New';
+  drops.forEach((y,i)=>{
+    ctx.fillText(String.fromCharCode(0x30A0+Math.random()*96),i*16,y*16);
+    if(y*16>cv.height&&Math.random()>.975)drops[i]=0;drops[i]++;
+  });
+}
+setInterval(drawMatrix,50);
+window.addEventListener('resize',()=>{cv.width=window.innerWidth;cv.height=window.innerHeight;});
+
+// loader
+let prog=0;
+const lb=document.getElementById('loader-bar');
+const lp=document.getElementById('loader-pct');
+const le=document.getElementById('loader');
+const li=setInterval(()=>{
+  prog+=Math.random()*15;
+  if(prog>=100){prog=100;clearInterval(li);setTimeout(()=>{le.style.opacity='0';setTimeout(()=>le.style.display='none',600);},300);}
+  lb.style.width=prog+'%';lp.textContent=Math.floor(prog)+'%';
+},120);
+
+render();
+updateStats();
+</script>
+</body>
+</html>
